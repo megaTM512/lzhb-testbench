@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/lzhb4.dir/lzhb4_main.cpp.o -o lzhb4  libliblzhb.a

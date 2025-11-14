@@ -1,24 +1,23 @@
-#include <iostream>
+#include "lzhb-decode.hpp"
+
 #include <chrono>
-#include <vector>
 #include <fstream>
+#include <iostream>
+#include <vector>
 
 #include "lzf.hpp"
 
-uint8_t getBit(const uint8_t& block, uint8_t pos) {
-  return (block >> pos) & 1;
-}
+uint8_t getBit(const uint8_t& block, uint8_t pos) { return (block >> pos) & 1; }
 
 void decodeBlock(std::vector<uint8_t>& bin_blocks,
-                            std::vector<uint32_t>& val_blocks, uint32_t bitsize,
-                            uint32_t tail) {
+                 std::vector<uint32_t>& val_blocks, uint32_t bitsize,
+                 uint32_t tail) {
   uint32_t val = 0;
   uint32_t buff = 0;
   for (size_t i = 0; i < bin_blocks.size(); i++) {
     if (i != bin_blocks.size() - 1) {
       for (size_t j = 8; j > 0; j--) {
-        val |=
-            (getBit(bin_blocks[i], j - 1) << (bitsize - buff - 1));
+        val |= (getBit(bin_blocks[i], j - 1) << (bitsize - buff - 1));
         buff++;
         if (buff == bitsize) {
           val_blocks.push_back(val);
@@ -28,8 +27,7 @@ void decodeBlock(std::vector<uint8_t>& bin_blocks,
       }
     } else {
       for (size_t j = 8; j > 8 - tail; j--) {
-        val |=
-            (getBit(bin_blocks[i], j - 1) << (bitsize - buff - 1));
+        val |= (getBit(bin_blocks[i], j - 1) << (bitsize - buff - 1));
         buff++;
         if (buff == bitsize) {
           val_blocks.push_back(val);
@@ -41,7 +39,8 @@ void decodeBlock(std::vector<uint8_t>& bin_blocks,
   }
 }
 
-std::vector<PhraseC> decodeToPhraseC(const std::string& filename, bool position = true){
+std::vector<PhraseC> decodeToPhraseC(const std::string& filename,
+                                     bool position = true) {
   std::vector<PhraseC> output;
 
   std::ifstream fs(filename, std::ifstream::binary);
@@ -72,36 +71,38 @@ std::vector<PhraseC> decodeToPhraseC(const std::string& filename, bool position 
   decodeBlock(bin_lp, phrase_lp, bitsize_lp, tail_lp);
   decodeBlock(bin_src, phrase_src, bitsize_src, tail_src);
 
-  if(position){
+  if (position) {
     for (size_t i = 0; i < phrase_lp.size(); i++) {
       if (i == 0) {
-        output.push_back(
-            PhraseC{.len = 1, .pos = phrase_src[i], .nextChar = phrase_c[i]});
+        output.push_back(PhraseC{
+            .endPos = 1, .pos = phrase_src[i], .nextChar = phrase_c[i]});
       } else {
         if (phrase_lp[i] - phrase_lp[i - 1] == 1) {
-          output.push_back(
-              PhraseC{.len = 1, .pos = phrase_src[i], .nextChar = phrase_c[i]});
+          output.push_back(PhraseC{
+              .endPos = 1, .pos = phrase_src[i], .nextChar = phrase_c[i]});
         } else {
-          output.push_back(PhraseC{.len = phrase_lp[i] - phrase_lp[i - 1],
-                                         .pos = phrase_src[i],
-                                         .nextChar = phrase_c[i]});
+          output.push_back(PhraseC{.endPos = phrase_lp[i] - phrase_lp[i - 1],
+                                   .pos = phrase_src[i],
+                                   .nextChar = phrase_c[i]});
         }
       }
     }
   } else {
     for (size_t i = 0; i < phrase_lp.size(); i++) {
-      output.push_back(PhraseC{
-          .len = phrase_lp[i], .pos = phrase_src[i], .nextChar = phrase_c[i]});
+      output.push_back(PhraseC{.endPos = phrase_lp[i],
+                               .pos = phrase_src[i],
+                               .nextChar = phrase_c[i]});
     }
   }
   return output;
 }
 
-std::string decodePhrasesToString(const std::vector<PhraseC>& phrases, bool position = false){
+std::string decodePhrasesToString(const std::vector<PhraseC>& phrases,
+                                  bool position = false) {
   std::string output;
-  for(const auto& phrase : phrases){
+  for (const auto& phrase : phrases) {
     int cuPos = output.length();
-    for(int i = 0; i < phrase.len - 1 - cuPos; i++){
+    for (int i = 0; i < phrase.endPos - 1 - cuPos; i++) {
       output.push_back(output[phrase.pos + i]);
     }
     output.push_back(phrase.nextChar);
@@ -109,32 +110,47 @@ std::string decodePhrasesToString(const std::vector<PhraseC>& phrases, bool posi
   return output;
 }
 
-uint32_t binSearchPredecessor(const std::vector<PhraseC>& phrases, uint32_t position) {
-    if (phrases.empty()) return UINT32_MAX;
-
-    uint32_t low = 0;
-    uint32_t high = phrases.size() - 1;
-    uint32_t result = UINT32_MAX;
-
-    while (low <= high) {
-        uint32_t mid = low + ((high - low) / 2);
-
-        if (phrases[mid].len <= position) {
-          
-          result = mid; // this is a candidate predecessor
-          low = mid + 1; // try to find a larger one still < position
-        } else {
-            high = mid - 1;
-        }
+uint32_t binSearchPredecessor(const std::vector<PhraseC>& phrases,
+                              uint32_t position) {
+  if (phrases.empty()) return UINT32_MAX;
+  // Iterarive binary search. I did it! Yippie!
+  uint32_t low = 0;
+  uint32_t high = phrases.size();
+  uint32_t result = UINT32_MAX;
+  while (low < high) {
+    uint32_t mid = low + (high - low) / 2;
+    if (phrases[mid].endPos <= position) {
+      // this phrase ends before 'position' and is a candidate.
+      result =
+          position == phrases[mid].endPos
+              ? mid
+              : mid +
+                    1;  // If exact match, return this index. Else out position
+                        // is included in next phrase. Quirks of lzhb format.
+      low = mid + 1;    // move right to find possibly later predecessor.
+    } else {
+      high = mid;  // move left to earlier phrases.
     }
-    return result;
+  }
+
+  return result;
 }
 
-
-char getPositionFromPhrases(const std::vector<PhraseC>& phrases, uint32_t position){ // Works when Position = false on generation. Else we need predecessor table
-
+char getPositionFromPhrases(
+    const std::vector<PhraseC>& phrases, uint32_t position,
+    int* height = nullptr) {  // Works when Position = false on generation. Else
+                              // we need predecessor table
+  PhraseC predecessor = phrases[binSearchPredecessor(phrases, position)];
+  uint32_t newPos = predecessor.endPos - position;
+  if (newPos == 0) {
+    return predecessor.nextChar;
+  } else {
+    if (height) (*height)++;
+    return getPositionFromPhrases(phrases, newPos, height);
+  }
 }
 
-void printPhrase(const PhraseC& phrase){
-  std::cout << "(" << phrase.len << "," << phrase.pos << "," << phrase.nextChar << ")" << std::endl;
+void printPhrase(const PhraseC& phrase) {
+  std::cout << "(" << phrase.endPos << "," << phrase.pos << ","
+            << phrase.nextChar << ")" << std::endl;
 }

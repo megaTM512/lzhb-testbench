@@ -9,7 +9,7 @@ struct Phrase{
 };
 
 struct PhraseC{ //
-  size_t len;
+  size_t endPos;
   size_t pos;
   char nextChar;
 };

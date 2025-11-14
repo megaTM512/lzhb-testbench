@@ -62,5 +62,5 @@
     "typeinfo": "cpp",
     "variant": "cpp"
   },
-  "cmake.sourceDirectory": "/home/timmo/Code/hblz-testbench/lzhb"
+  "cmake.sourceDirectory": "/home/timmo/Code/CPP/lzhb-testbench/lzhb"
 }
