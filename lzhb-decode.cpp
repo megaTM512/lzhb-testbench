@@ -1,11 +1,12 @@
-#include "lzhb-decode.hpp"
 
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <cstdint>
 
 #include "lzf.hpp"
+#include "lzhb-decode.hpp"
 
 uint8_t getBit(const uint8_t& block, uint8_t pos) { return (block >> pos) & 1; }
 
@@ -40,7 +41,7 @@ void decodeBlock(std::vector<uint8_t>& bin_blocks,
 }
 
 std::vector<PhraseC> decodeToPhraseC(const std::string& filename,
-                                     bool position = true) {
+                                     bool position) {
   std::vector<PhraseC> output;
 
   std::ifstream fs(filename, std::ifstream::binary);
@@ -98,7 +99,7 @@ std::vector<PhraseC> decodeToPhraseC(const std::string& filename,
 }
 
 std::string decodePhrasesToString(const std::vector<PhraseC>& phrases,
-                                  bool position = false) {
+                                  bool position) {
   std::string output;
   for (const auto& phrase : phrases) {
     int cuPos = output.length();
@@ -138,7 +139,7 @@ uint32_t binSearchPredecessor(const std::vector<PhraseC>& phrases,
 
 char getPositionFromPhrases(
     const std::vector<PhraseC>& phrases, uint32_t position,
-    int* height = nullptr) {  // Works when Position = false on generation. Else
+    int* height) {  // Works when Position = false on generation. Else
                               // we need predecessor table
   PhraseC predecessor = phrases[binSearchPredecessor(phrases, position)];
   uint32_t newPos = predecessor.endPos - position;

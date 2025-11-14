@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "lzf.hpp"
-#include "lzhb-decode.cpp"
+#include "lzhb-decode.hpp"
 
 int main() {
   // IMPORTANT position = false.
