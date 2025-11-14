@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/lzhb_decomp.dir/lzhb_decomp_main.cpp.o -o lzhb_decomp  libliblzhb.a

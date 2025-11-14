@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/timmo/Code/hblz-testbench/lzhb/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
