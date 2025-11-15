@@ -112,7 +112,7 @@ std::string decodePhrasesToString(const std::vector<PhraseC>& phrases,
 }
 
 uint32_t binSearchPredecessor(const std::vector<PhraseC>& phrases,
-                              uint32_t position) {
+                              uint32_t position, const std::vector<int>& predecessortable) {
   if (phrases.empty()) return UINT32_MAX;
   // Iterarive binary search. I did it! Yippie!
   uint32_t low = 0;
