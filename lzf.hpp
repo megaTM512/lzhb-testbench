@@ -2,15 +2,16 @@
 #define LZFACTORIZATION
 
 #include <vector>
+#include<cstdint>
 
 struct Phrase{
-  size_t len;
-  size_t pos; // char when len <= 1
+  uint32_t len;
+  uint32_t pos; // char when len <= 1
 };
 
 struct PhraseC{ //
-  size_t endPos;
-  size_t pos;
+  uint32_t len;
+  uint32_t pos;
   char nextChar;
 };
 
