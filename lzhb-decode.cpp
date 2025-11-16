@@ -43,7 +43,7 @@ void decodeBlock(std::vector<uint8_t>& bin_blocks,
 
 // The position parameter indicates if the length or the end position of the
 // phrase should be saved in len. Depending on the generation method we need to
-// use either
+// use either one or the other.
 std::vector<PhraseC> decodeToPhraseC(const std::string& filename,
                                      bool position) {
   std::vector<PhraseC> output;
@@ -136,7 +136,8 @@ std::vector<uint32_t> buildPredecessorTable(
   return predecessortable;
 }
 
-// When position = false on generation.
+// When position = false on generation. The contents of the predecessor table
+// are "embedded" in the PhraseC len fields.
 uint32_t binSearchPredecessor(const std::vector<PhraseC>& phrases,
                               uint32_t position) {
   if (phrases.empty()) return UINT32_MAX;
@@ -163,7 +164,7 @@ uint32_t binSearchPredecessor(const std::vector<PhraseC>& phrases,
   return result;
 }
 
-// When position = true on generation.
+// When position = true on generation. We need to calculate the predecessor table beforehand.
 uint32_t binSearchPredecessorT(const std::vector<PhraseC>& phrases,
                                const std::vector<uint32_t>& predecessortable,
                                uint32_t position) {
@@ -180,7 +181,7 @@ uint32_t binSearchPredecessorT(const std::vector<PhraseC>& phrases,
               : mid +
                     1;  // If exact match, return this index. Else out position
                         // is included in next phrase. Quirks of lzhb format.
-      low = mid + 1;    // move right to find possibly later predecessor.
+      low = mid + 1;
     } else {
       high = mid;  // move left to earlier phrases.
     }
@@ -194,15 +195,16 @@ char getPositionFromPhrases(const std::vector<PhraseC>& phrases,
   if (idx == UINT32_MAX) return 0;  // not found, return NUL as a fallback
 
   const PhraseC& predecessor = phrases[idx];
-  uint32_t prevEnd = (idx == 0) ? 0u : phrases[idx - 1].len;
+  uint32_t prevEnd = (idx == 0) ? 0 : phrases[idx - 1].len;
 
-// We found the char when the position is exactly the phrase's final position.
+  // We found the char when the position is exactly the phrase's final position.
   if (position == predecessor.len) {
     return predecessor.nextChar;
   }
 
-  // Otherwise the character lies between the lastPos of our predecessor and the previous phrase's end.
-  // The new Position has the same offset from the source position as from the beginning of the copied region.
+  // Otherwise the character lies between the lastPos of our predecessor and the
+  // previous phrase's end. The new Position has the same offset from the source
+  // position as from the beginning of the copied region.
   if (position > prevEnd && position < predecessor.len) {
     uint32_t offset = position - prevEnd;
     uint32_t newPos = predecessor.pos + offset;
@@ -219,15 +221,17 @@ char getPositionFromPhrasesT(const std::vector<PhraseC>& phrases,
   if (idx == UINT32_MAX) return 0;
 
   const PhraseC& predecessor = phrases[idx];
-  uint32_t prevEnd = (idx == 0) ? 0 : predecessortable[idx - 1];  // cumulative length
+  uint32_t prevEnd =
+      (idx == 0) ? 0 : predecessortable[idx - 1];  // cumulative length
 
   // We found the char when the position is exactly the phrase's final position.
   if (position == predecessortable[idx]) {
     return predecessor.nextChar;
   }
 
-  // Otherwise the character lies between the lastPos of our predecessor and the previous phrase's end.
-  // The new Position has the same offset from the source position as from the beginning of the copied region.
+  // Otherwise the character lies between the lastPos of our predecessor and the
+  // previous phrase's end. The new Position has the same offset from the source
+  // position as from the beginning of the copied region.
   if (position > prevEnd && position < predecessortable[idx]) {
     uint32_t offset = position - prevEnd;
     uint32_t newPos = predecessor.pos + offset;

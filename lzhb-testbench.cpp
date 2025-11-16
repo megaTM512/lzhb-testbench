@@ -51,28 +51,39 @@ int main(int argc, char* argv[]) {
       printPhrase(phrase);
     }
   }
-
+  
   std::string output = decodePhrasesToString(phrases);
   if(verbose) std::cout << output << std::endl;
-
-  std::vector<std::chrono::duration<double, std::micro>> timings;
   std::cout << "Decoding successful" << std::endl;
   std::cout << "Starting random access test with " << repeats
             << " queries." << std::endl;
+
+  std::vector<std::chrono::duration<double, std::micro>> timings;
+  timings.reserve(repeats);
+  
+  // Pre-generate random positions
   srand(time(0));
+  std::vector<int> positions(repeats);
+  for(int i = 0; i < repeats; i++) {
+    positions[i] = (rand() % output.size()) + 1;
+  }
+
   auto predecessortable = buildPredecessorTable(phrases);
+
+  // Warming up cache
+  for (int i = 0; i < std::min(1000, repeats); i++) {
+    getPositionFromPhrasesT(phrases, predecessortable, positions[i]);
+  }
+
+  // Benchmark
   for (int i = 0; i < repeats; i++) {
-    long long int randomPos = (rand() % output.size()) + 1;
     auto start = std::chrono::high_resolution_clock::now();
-    char c = getPositionFromPhrasesT(phrases, predecessortable, randomPos);
+    char c = getPositionFromPhrasesT(phrases, predecessortable, positions[i]);
     auto end = std::chrono::high_resolution_clock::now();
-    // std::cout << "Character at position " << randomPos << ": " << c <<
-    // std::endl; std::cout << "Expected character: " << output[randomPos - 1]
-    // << std::endl;
-    assert(output[randomPos - 1] == c &&
+
+    assert(output[positions[i] - 1] == c &&
            "character mismatch between output and decoded phrases");
-    std::chrono::duration<double, std::micro> elapsed = end - start;
-    timings.push_back(elapsed);
+    timings.push_back(end - start);
   }
   double totalTime = 0.0;
   for (auto t : timings) {

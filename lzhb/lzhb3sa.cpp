@@ -8,6 +8,7 @@
 
 static inline uInt _e() { return 0; }
 static inline uInt _max(uInt a, uInt b) { return std::max(a, b); }
+static inline uInt _sum(uInt a, uInt b) { return a + b; }
 
 // truncate the suffix tree if necessary as when T[pos] becomes terminal
 static void truncateStree(TruncatedSuffixArray& stree, uInt pos,
@@ -39,10 +40,26 @@ static void truncateStree(TruncatedSuffixArray& stree, uInt pos,
   }
   return;
 }
+static void truncateStree(TruncatedSuffixArray& stree, uInt pos,
+                          atcoder::segtree<uInt, _sum, _e>& h,
+                          uInt height_bound) {
+  if (h.get(pos) < height_bound) {
+    stree.setLength(pos, stree.size() - pos);
+  } else {
+    uInt k = pos;
+    stree.setLength(k, 0);
+    while (k-- > 0) {
+      if (h.get(k) >= height_bound) return;
+      stree.setLength(k, pos - k);
+    }
+  }
+  return;
+}
 
 std::vector<lzhb::Phrase> lzhb3sa::parse(const std::string& s,
                                          uInt height_bound) {
   std::vector<lzhb::Phrase> res;
+  std::cout << "Regular Parse" << std::endl;
   TruncatedSuffixArray stree(s);
   std::vector<uInt> h(s.size(), 0);
   uInt pos = 0;
@@ -71,8 +88,9 @@ std::vector<lzhb::Phrase> lzhb3sa::parse(const std::string& s,
 std::vector<lzhb::Phrase> lzhb3sa::parseGreedier(const std::string& s,
                                                  uInt height_bound) {
   std::vector<lzhb::Phrase> res;
+  std::cout << "Greedier Parse" << std::endl;
   TruncatedSuffixArray stree(s);
-  atcoder::segtree<uInt, _max, _e> h(s.size());
+  atcoder::segtree<uInt, _sum, _e> h(s.size());
 
   uInt pos = 0;
   while (pos < s.size()) {
@@ -85,12 +103,12 @@ std::vector<lzhb::Phrase> lzhb3sa::parseGreedier(const std::string& s,
     } else {
       src = std::numeric_limits<uInt>::max();
       auto occs = stree.getOccs(lce.first, lce.second);
-      uInt minmaxh = std::numeric_limits<uInt>::max();
+      uInt minsum = std::numeric_limits<uInt>::max();
       for (auto occ : occs) {
-        uInt maxh = h.prod(occ, std::min(occ + len, pos));
-        if (maxh < minmaxh || (maxh <= minmaxh && occ < src)) {
+        uInt sumh = h.prod(occ, std::min(occ + len, pos));
+        if (sumh < minsum || (sumh <= minsum && occ < src)) {
           src = occ;
-          minmaxh = maxh;
+          minsum = sumh;
         }
       }
       for (uInt i = 0; i < len; i++) {
@@ -149,8 +167,9 @@ std::vector<lzhb::PhraseC> lzhb3sa::parseC(const std::string& s,
 std::vector<lzhb::PhraseC> lzhb3sa::parseGreedierC(const std::string& s,
                                                    uInt height_bound) {
   std::vector<lzhb::PhraseC> res;
+  std::cout << "Greedier C Parse" << std::endl;
   TruncatedSuffixArray stree(s);
-  atcoder::segtree<uInt, _max, _e> h(s.size());
+  atcoder::segtree<uInt, _sum, _e> h(s.size());
 
   uInt pos = 0;
   while (pos < s.size()) {
@@ -166,12 +185,12 @@ std::vector<lzhb::PhraseC> lzhb3sa::parseGreedierC(const std::string& s,
     } else {
       src = std::numeric_limits<uInt>::max();
       auto occs = stree.getOccs(lce.first, lce.second);
-      uInt minmaxh = std::numeric_limits<uInt>::max();
+      uInt minsum = std::numeric_limits<uInt>::max();
       for (auto occ : occs) {
-        uInt maxh = h.prod(occ, std::min(occ + len, pos));
-        if (maxh < minmaxh || (maxh <= minmaxh && occ < src)) {
+        uInt sumh = h.prod(occ, std::min(occ + len, pos));
+        if (sumh < minsum || (sumh <= minsum && occ < src)) {
           src = occ;
-          minmaxh = maxh;
+          minsum = sumh;
         }
       }
       for (uInt i = 0; i < len; i++) {
