@@ -101,6 +101,8 @@ std::vector<PhraseC> decodeToPhraseC(const std::string& filename,
   return output;
 }
 
+// ---------------------------------------------------------------------------
+
 std::string decodePhrasesToString(const std::vector<PhraseC>& phrases,
                                   bool position) {
   if (!position) {
@@ -125,6 +127,9 @@ std::string decodePhrasesToString(const std::vector<PhraseC>& phrases,
   }
 }
 
+// The predecessor table holds the cumulative lengths of phrases. I.e the last
+// position of a phrase i is stored at predecessortable[i] (which is the
+// position of the appended char).
 std::vector<uint32_t> buildPredecessorTable(
     const std::vector<PhraseC>& phrases) {
   std::vector<uint32_t> predecessortable;
@@ -164,7 +169,8 @@ uint32_t binSearchPredecessor(const std::vector<PhraseC>& phrases,
   return result;
 }
 
-// When position = true on generation. We need to calculate the predecessor table beforehand.
+// When position = true on generation. We need to calculate the predecessor
+// table beforehand.
 uint32_t binSearchPredecessorT(const std::vector<PhraseC>& phrases,
                                const std::vector<uint32_t>& predecessortable,
                                uint32_t position) {

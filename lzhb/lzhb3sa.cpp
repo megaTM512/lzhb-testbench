@@ -40,6 +40,8 @@ static void truncateStree(TruncatedSuffixArray& stree, uInt pos,
   }
   return;
 }
+
+// Only the function head is changed, to accept our segment tree with the sum function. We still prune based on max height.
 static void truncateStree(TruncatedSuffixArray& stree, uInt pos,
                           atcoder::segtree<uInt, _sum, _e>& h,
                           uInt height_bound) {
@@ -59,7 +61,6 @@ static void truncateStree(TruncatedSuffixArray& stree, uInt pos,
 std::vector<lzhb::Phrase> lzhb3sa::parse(const std::string& s,
                                          uInt height_bound) {
   std::vector<lzhb::Phrase> res;
-  std::cout << "Regular Parse" << std::endl;
   TruncatedSuffixArray stree(s);
   std::vector<uInt> h(s.size(), 0);
   uInt pos = 0;
@@ -85,10 +86,10 @@ std::vector<lzhb::Phrase> lzhb3sa::parse(const std::string& s,
   return res;
 }
 
+// MODIFIED TO USE THE SUM OF HEIGHTS INSTEAD OF THE MAX HEIGHT
 std::vector<lzhb::Phrase> lzhb3sa::parseGreedier(const std::string& s,
                                                  uInt height_bound) {
   std::vector<lzhb::Phrase> res;
-  std::cout << "Greedier Parse" << std::endl;
   TruncatedSuffixArray stree(s);
   atcoder::segtree<uInt, _sum, _e> h(s.size());
 
@@ -164,10 +165,10 @@ std::vector<lzhb::PhraseC> lzhb3sa::parseC(const std::string& s,
   return res;
 }
 
+// MODIFIED TO USE THE SUM OF HEIGHTS INSTEAD OF THE MAX HEIGHT
 std::vector<lzhb::PhraseC> lzhb3sa::parseGreedierC(const std::string& s,
                                                    uInt height_bound) {
   std::vector<lzhb::PhraseC> res;
-  std::cout << "Greedier C Parse" << std::endl;
   TruncatedSuffixArray stree(s);
   atcoder::segtree<uInt, _sum, _e> h(s.size());
 

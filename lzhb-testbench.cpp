@@ -1,3 +1,6 @@
+
+#include "lzhb-testbench.hpp"
+
 #include <cassert>
 #include <chrono>
 #include <fstream>
@@ -9,16 +12,13 @@
 #include "lzhb-decode.hpp"
 
 int main(int argc, char* argv[]) {
-  // IMPORTANT position = false.
-  // TODO Otherwise we need predecessor table
   // This currently only works with lzcp files,
   // create using ./lzhb3 -a -z -s -f "./banana.txt" -o "banana"
 
   cxxopts::Options options("LZHB-Testbench",
                            "Testbench for LZHB factorizations.");
-  options.add_options()(
-      "i,inputfile", "Input file",
-      cxxopts::value<std::string>())(
+  options.add_options()("i,inputfile", "Input file",
+                        cxxopts::value<std::string>())(
       "r,repeats", "Number of repeats",
       cxxopts::value<int>()->default_value("1000"))(
       "o,outputfile", "Output file",
@@ -30,17 +30,15 @@ int main(int argc, char* argv[]) {
 
   int repeats = result["repeats"].as<int>();
   std::string inputFile;
-  try
-  {
+  try {
     inputFile = result["inputfile"].as<std::string>();
-  }
-  catch(const cxxopts::exceptions::option_has_no_value& e)
-  {
+  } catch (const cxxopts::exceptions::option_has_no_value& e) {
     std::cerr << "Error: Input file is required." << std::endl;
-    std::cerr << "Use -i or --inputfile to specify the input file." << std::endl;
+    std::cerr << "Use -i or --inputfile to specify the input file."
+              << std::endl;
     return 1;
   }
-  
+
   std::string outputFile = result["outputfile"].as<std::string>();
   bool verbose = result["verbose"].as<bool>();
 
@@ -51,20 +49,30 @@ int main(int argc, char* argv[]) {
       printPhrase(phrase);
     }
   }
-  
-  std::string output = decodePhrasesToString(phrases);
-  if(verbose) std::cout << output << std::endl;
-  std::cout << "Decoding successful" << std::endl;
-  std::cout << "Starting random access test with " << repeats
-            << " queries." << std::endl;
 
+  std::cout << "--- Random Access Decoding Benchmark ---" << std::endl;
+  std::cout << "Input file: " << inputFile << std::endl;
+  std::cout << "Number of phrases: " << phrases.size() << std::endl;
+  std::string output = decodePhrasesToString(phrases);
+  if (verbose) std::cout << output << std::endl;
+  std::cout << "Decoding successful" << std::endl;
+  std::cout << "Starting random access test with " << repeats << " queries."
+            << std::endl;
+
+  randomAccessBenchmark(repeats, output, phrases);
+  
+  return 0;
+}
+
+void randomAccessBenchmark(const int repeats, std::string& output,
+                           std::vector<PhraseC>& phrases) {
   std::vector<std::chrono::duration<double, std::micro>> timings;
   timings.reserve(repeats);
-  
+
   // Pre-generate random positions
   srand(time(0));
   std::vector<int> positions(repeats);
-  for(int i = 0; i < repeats; i++) {
+  for (int i = 0; i < repeats; i++) {
     positions[i] = (rand() % output.size()) + 1;
   }
 
@@ -93,5 +101,4 @@ int main(int argc, char* argv[]) {
             << " microseconds" << std::endl;
   std::cout << "Average time per query: " << (totalTime / repeats)
             << " microseconds" << std::endl;
-  return 0;
 }
