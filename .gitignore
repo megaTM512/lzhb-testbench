@@ -63,3 +63,5 @@ CMakeUserPresets.json
 
 # Input data should not be committed.
 input_data/
+
+.vscode/
