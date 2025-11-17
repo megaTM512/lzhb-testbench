@@ -13,7 +13,7 @@ make
 Then simply
 
 ```bash
-./lzhb-testbench -i {INPUT_FILE}
+./lzhb-testbench -i {INPUT_FILE} -r {REPEATS}
 ```
 
 ### Arguments
@@ -22,7 +22,7 @@ Then simply
 -i {INPUT_FILE}   # The input file. Must follow the lzcp format from lzhb.
 -o {OUTPUT_FILE}  # The output for the test results. Currently does nothing.
 -r {NUMBER}       # The number of repeats for the "random access" test.
--b {NUMBER}       # Batch size.
+-b {NUMBER}       # Batch size. Currently does nothing.
 -v                # If the decoded phrases and the decoded text should be printed.
 ```
 
