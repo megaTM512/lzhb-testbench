@@ -184,8 +184,7 @@ uint32_t binSearchPredecessorT(const std::vector<PhraseC>& phrases,
       result =
           position == predecessortable[mid]
               ? mid
-              : mid +
-                    1;  // If exact match, return this index. Else out position
+              : mid + 1;// If exact match, return this index. Else our character
                         // is included in next phrase. Quirks of lzhb format.
       low = mid + 1;
     } else {

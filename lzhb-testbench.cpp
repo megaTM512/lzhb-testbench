@@ -50,17 +50,23 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  std::cout << "--- Random Access Decoding Benchmark ---" << std::endl;
   std::cout << "Input file: " << inputFile << std::endl;
   std::cout << "Number of phrases: " << phrases.size() << std::endl;
   std::string output = decodePhrasesToString(phrases);
   if (verbose) std::cout << output << std::endl;
   std::cout << "Decoding successful" << std::endl;
+  std::cout << "--- Random Access Decoding Benchmark ---" << std::endl;
   std::cout << "Starting random access test with " << repeats << " queries."
             << std::endl;
+            randomAccessBenchmark(repeats, output, phrases);
 
-  randomAccessBenchmark(repeats, output, phrases);
-  
+  std::cout << "--- Consecutive Random Access Decoding Benchmark ---" << std::endl;
+  std::cout << "Starting consecutive random access test with " << repeats << " queries."
+            << std::endl;
+  std::cout << "The range of consecutive accesses is from 1 up to 20 characters." << std::endl;
+  randomAccessConsecutiveBenchmark(repeats, output, phrases);
+  std::cout << "--- Height Analysis ---" << std::endl;
+  heightAnalysis(phrases);
   return 0;
 }
 
@@ -101,4 +107,93 @@ void randomAccessBenchmark(const int repeats, std::string& output,
             << " microseconds" << std::endl;
   std::cout << "Average time per query: " << (totalTime / repeats)
             << " microseconds" << std::endl;
+}
+
+void randomAccessConsecutiveBenchmark(const int repeats, std::string& output,
+                                    std::vector<PhraseC>& phrases) {
+  std::vector<std::chrono::duration<double, std::micro>> timings;
+  timings.reserve(repeats);
+
+  auto predecessortable = buildPredecessorTable(phrases);
+
+  srand(time(0));
+  std::vector<int> positions(repeats);
+  for (int i = 0; i < repeats; i++) {
+    positions[i] = (rand() % output.size()) + 1;
+  }
+  srand(42);
+  std::vector<ulong> lengths(repeats);
+  for (int i = 0; i < repeats; i++) {
+    lengths[i] = (rand() % 20) + 1;
+  }
+
+  // Warming up cache
+  for (int i = 0; i < std::min(1000, repeats); i++) {
+    for (int j = 0; j < std::min(lengths[i], output.size() - positions[i]); j++) {
+      getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
+    }
+  }
+  // Benchmark
+  char sink;
+  for (int i = 0; i < repeats; i++) {
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int j = 0; j < std::min(lengths[i], output.size() - positions[i]); j++) {
+      char c = getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
+      sink ^= c;
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    timings.push_back(end - start);
+  }
+  double totalTime = 0.0;
+  for (auto t : timings) {
+    totalTime += t.count();
+  }
+  std::cout << "Total time for " << repeats << " queries: " << totalTime
+            << " microseconds" << std::endl;
+  std::cout << "Average time per query: " << (totalTime / repeats)
+            << " microseconds" << std::endl;
+}
+
+
+void heightAnalysis(const std::vector<PhraseC>& phrases) {
+  std::vector<int> heights;
+  heights.reserve(phrases.size());
+
+  for (uint32_t i = 0; i < phrases.size(); i++) {
+    if( phrases[i].len == 1 ) {
+      heights.push_back(0);
+      continue;
+    }
+    for(uint32_t j = 0; j < phrases[i].len - 1; j++) {
+      if(phrases[i].pos + j >= i) { // Self reference doesn't increase height
+        heights.push_back(heights[phrases[i].pos + j]);
+      }
+      else heights.push_back(heights[phrases[i].pos + j] + 1);
+    }
+    heights.push_back(0); // for the appended char
+  }
+
+  double totalHeight = 0.0;
+  int maxHeight = 0;
+  for (auto h : heights) {
+    totalHeight += h;
+    if (h > maxHeight) {
+      maxHeight = h;
+    }
+  }
+  for(auto h : heights) {
+    std::cout << h << std::endl;
+  }
+  double avgHeight = totalHeight / heights.size();
+  std::cout << "Average height: " << avgHeight
+            << std::endl;
+  std::cout << "Maximum height: " << maxHeight << std::endl;
+  std::cout << "Variance of heights: ";
+  double variance = 0.0;
+  for (auto h : heights) {
+    variance += (h - avgHeight) * (h - avgHeight);
+  }
+  variance /= heights.size();
+  std::cout << variance << std::endl;
 }

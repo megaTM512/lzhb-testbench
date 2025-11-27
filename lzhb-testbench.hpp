@@ -7,5 +7,7 @@
 
 void randomAccessBenchmark(const int repeats, std::string& output,
                            std::vector<PhraseC>& phrases);
-
+void heightAnalysis(const std::vector<PhraseC>& phrases);
+void randomAccessConsecutiveBenchmark(const int repeats, std::string& output,
+                                    std::vector<PhraseC>& phrases);
 #endif  // LZHB_TESTBENCH_HPP
