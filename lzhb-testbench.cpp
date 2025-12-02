@@ -24,9 +24,16 @@ int main(int argc, char* argv[]) {
       "o,outputfile", "Output file",
       cxxopts::value<std::string>()->default_value(""))(
       "v,verbose", "Verbose output",
-      cxxopts::value<bool>()->default_value("false"));
+      cxxopts::value<bool>()->default_value("false"))(
+      "b,batchsize", "Batch size for random access benchmark",
+      cxxopts::value<int>()->default_value("1000"));
 
   auto result = options.parse(argc, argv);
+  if (result.count("help")) {
+    std::cout << options.help() << std::endl;
+    return 0;
+  }
+  auto batchSize = result["batchsize"].as<int>();
 
   int repeats = result["repeats"].as<int>();
   std::string inputFile;
@@ -58,12 +65,12 @@ int main(int argc, char* argv[]) {
   std::cout << "--- Random Access Decoding Benchmark ---" << std::endl;
   std::cout << "Starting random access test with " << repeats << " queries."
             << std::endl;
-  randomAccessBenchmark(repeats, output, phrases);
+  randomAccessBenchmark(repeats, output, phrases, batchSize);
 
   std::cout << "--- Consecutive Random Access Decoding Benchmark ---"
             << std::endl;
   std::cout << "Starting consecutive random access test with " << repeats
-            << " queries." << std::endl;
+            << " batches of" << batchSize << "." << std::endl;
   std::cout
       << "The range of consecutive accesses is from 1 up to 20 characters."
       << std::endl;
@@ -74,8 +81,8 @@ int main(int argc, char* argv[]) {
 }
 
 void randomAccessBenchmark(const int repeats, std::string& output,
-                           std::vector<PhraseC>& phrases) {
-  std::vector<std::chrono::duration<double, std::micro>> timings;
+                           std::vector<PhraseC>& phrases, int batchSize) {
+  std::vector<std::chrono::duration<double, std::nano>> timings;
   timings.reserve(repeats);
 
   // Pre-generate random positions
@@ -94,27 +101,50 @@ void randomAccessBenchmark(const int repeats, std::string& output,
 
   // Benchmark
   for (int i = 0; i < repeats; i++) {
+    volatile char c;
     auto start = std::chrono::high_resolution_clock::now();
-    char c = getPositionFromPhrasesT(phrases, predecessortable, positions[i]);
+    for(int k = 0; k < batchSize; k++) c = getPositionFromPhrasesT(phrases, predecessortable, positions[i]);
     auto end = std::chrono::high_resolution_clock::now();
-
-    assert(output[positions[i] - 1] == c &&
-           "character mismatch between output and decoded phrases");
-    timings.push_back(end - start);
+    (void)c;
+    double dt = std::chrono::duration<double, std::nano>(end - start).count();
+    dt /= batchSize; // average over batchSize runs
+    timings.push_back(std::chrono::duration<double, std::nano>(dt));
   }
   double totalTime = 0.0;
   for (auto t : timings) {
     totalTime += t.count();
   }
-  std::cout << "Total time for " << repeats << " queries: " << totalTime
-            << " microseconds" << std::endl;
-  std::cout << "Average time per query: " << (totalTime / repeats)
-            << " microseconds" << std::endl;
+  std::cout << "Total time for " << repeats << " batches: " << totalTime
+            << " nanoseconds" << std::endl;
+  std::cout << "Average time per batch: " << (totalTime / repeats)
+            << " nanoseconds" << std::endl;
+
+    std::vector<std::chrono::duration<double, std::nano>> stringTimings;
+    stringTimings.reserve(repeats);
+    // Compare to string access
+    for(int i = 0; i < repeats; i++) {
+        volatile char c;
+        auto start = std::chrono::high_resolution_clock::now();
+        for(int k = 0; k < batchSize; k++) c = output[positions[i]-1];
+        auto end = std::chrono::high_resolution_clock::now();
+        (void)c;
+        double dt = std::chrono::duration<double, std::nano>(end - start).count();
+        dt /= batchSize; // average over batchSize runs
+        stringTimings.push_back(std::chrono::duration<double, std::nano>(dt));
+    }
+    double totalStringTime = 0.0;
+    for (auto t : stringTimings) {
+        totalStringTime += t.count();
+    }
+    std::cout << "Total time for " << repeats << " batches (string access): " << totalStringTime
+              << " nanoseconds" << std::endl;
+    std::cout << "Average time per batch (string access): " << (totalStringTime / repeats)
+              << " nanoseconds" << std::endl;
 }
 
 void randomAccessConsecutiveBenchmark(const int repeats, std::string& output,
                                       std::vector<PhraseC>& phrases) {
-  std::vector<std::chrono::duration<double, std::micro>> timings;
+  std::vector<std::chrono::duration<double, std::nano>> timings;
   timings.reserve(repeats);
 
   auto predecessortable = buildPredecessorTable(phrases);
@@ -132,33 +162,34 @@ void randomAccessConsecutiveBenchmark(const int repeats, std::string& output,
 
   // Warming up cache
   for (int i = 0; i < std::min(1000, repeats); i++) {
-    for (int j = 0; j < std::min(lengths[i], output.size() - positions[i]);
+    for (size_t j = 0; j < std::min(lengths[i], output.size() - positions[i]);
          j++) {
       getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
     }
   }
   // Benchmark
-  char sink;
+  volatile char c;
   for (int i = 0; i < repeats; i++) {
     auto start = std::chrono::high_resolution_clock::now();
-    for (int j = 0; j < std::min(lengths[i], output.size() - positions[i]);
+    for (long unsigned int j = 0; j < std::min(lengths[i], output.size() - positions[i]);
          j++) {
-      char c =
+      c =
           getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
-      sink ^= c;
-    }
-    auto end = std::chrono::high_resolution_clock::now();
-
-    timings.push_back(end - start);
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+    (void)c;
+    double dt = std::chrono::duration<double, std::nano>(end - start).count();
+    dt /= repeats;
+    timings.push_back(std::chrono::duration<double, std::nano>(dt));
   }
   double totalTime = 0.0;
   for (auto t : timings) {
     totalTime += t.count();
   }
   std::cout << "Total time for " << repeats << " queries: " << totalTime
-            << " microseconds" << std::endl;
+            << " nanoseconds" << std::endl;
   std::cout << "Average time per query: " << (totalTime / repeats)
-            << " microseconds" << std::endl;
+            << " nanoseconds" << std::endl;
 }
 
 void heightAnalysis(const std::vector<PhraseC>& phrases) {

@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX := g++
-CXXFLAGS := -std=c++20 -Wall -Wextra -O2
+CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -march=native -fstrict-aliasing
 
 # Target executable name
 TARGET := lzhb-testbench

@@ -6,7 +6,7 @@
 #include "lzf.hpp"
 
 void randomAccessBenchmark(const int repeats, std::string& output,
-                           std::vector<PhraseC>& phrases);
+                           std::vector<PhraseC>& phrases, int batchSize);
 void heightAnalysis(const std::vector<PhraseC>& phrases);
 void randomAccessConsecutiveBenchmark(const int repeats, std::string& output,
                                     std::vector<PhraseC>& phrases);
