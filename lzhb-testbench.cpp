@@ -58,12 +58,15 @@ int main(int argc, char* argv[]) {
   std::cout << "--- Random Access Decoding Benchmark ---" << std::endl;
   std::cout << "Starting random access test with " << repeats << " queries."
             << std::endl;
-            randomAccessBenchmark(repeats, output, phrases);
+  randomAccessBenchmark(repeats, output, phrases);
 
-  std::cout << "--- Consecutive Random Access Decoding Benchmark ---" << std::endl;
-  std::cout << "Starting consecutive random access test with " << repeats << " queries."
+  std::cout << "--- Consecutive Random Access Decoding Benchmark ---"
             << std::endl;
-  std::cout << "The range of consecutive accesses is from 1 up to 20 characters." << std::endl;
+  std::cout << "Starting consecutive random access test with " << repeats
+            << " queries." << std::endl;
+  std::cout
+      << "The range of consecutive accesses is from 1 up to 20 characters."
+      << std::endl;
   randomAccessConsecutiveBenchmark(repeats, output, phrases);
   std::cout << "--- Height Analysis ---" << std::endl;
   heightAnalysis(phrases);
@@ -110,7 +113,7 @@ void randomAccessBenchmark(const int repeats, std::string& output,
 }
 
 void randomAccessConsecutiveBenchmark(const int repeats, std::string& output,
-                                    std::vector<PhraseC>& phrases) {
+                                      std::vector<PhraseC>& phrases) {
   std::vector<std::chrono::duration<double, std::micro>> timings;
   timings.reserve(repeats);
 
@@ -129,7 +132,8 @@ void randomAccessConsecutiveBenchmark(const int repeats, std::string& output,
 
   // Warming up cache
   for (int i = 0; i < std::min(1000, repeats); i++) {
-    for (int j = 0; j < std::min(lengths[i], output.size() - positions[i]); j++) {
+    for (int j = 0; j < std::min(lengths[i], output.size() - positions[i]);
+         j++) {
       getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
     }
   }
@@ -137,8 +141,10 @@ void randomAccessConsecutiveBenchmark(const int repeats, std::string& output,
   char sink;
   for (int i = 0; i < repeats; i++) {
     auto start = std::chrono::high_resolution_clock::now();
-    for (int j = 0; j < std::min(lengths[i], output.size() - positions[i]); j++) {
-      char c = getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
+    for (int j = 0; j < std::min(lengths[i], output.size() - positions[i]);
+         j++) {
+      char c =
+          getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
       sink ^= c;
     }
     auto end = std::chrono::high_resolution_clock::now();
@@ -155,26 +161,34 @@ void randomAccessConsecutiveBenchmark(const int repeats, std::string& output,
             << " microseconds" << std::endl;
 }
 
-
 void heightAnalysis(const std::vector<PhraseC>& phrases) {
   std::vector<int> heights;
-  heights.reserve(phrases.size());
 
   for (uint32_t i = 0; i < phrases.size(); i++) {
-    if( phrases[i].len == 1 ) {
+    const auto& p = phrases[i];
+
+    // Literal
+    if (p.len == 1) {
       heights.push_back(0);
       continue;
     }
-    for(uint32_t j = 0; j < phrases[i].len - 1; j++) {
-      if(phrases[i].pos + j >= i) { // Self reference doesn't increase height
-        heights.push_back(heights[phrases[i].pos + j]);
+
+    auto phrase_start = heights.size();
+    for (uint32_t j = 0; j < p.len - 1; j++) {
+      if(p.pos + j >= phrase_start) {
+        heights.push_back(heights[p.pos + j]); // Self-Reference
       }
-      else heights.push_back(heights[phrases[i].pos + j] + 1);
+      else heights.push_back(heights[p.pos + j] + 1);
     }
-    heights.push_back(0); // for the appended char
+
+    // appended literal
+    heights.push_back(0);
   }
 
-  double totalHeight = 0.0;
+  assert(decodePhrasesToString(phrases).size() == heights.size() &&
+         "Height analysis size mismatch");
+
+  long double totalHeight = 0.0;
   int maxHeight = 0;
   for (auto h : heights) {
     totalHeight += h;
@@ -182,12 +196,9 @@ void heightAnalysis(const std::vector<PhraseC>& phrases) {
       maxHeight = h;
     }
   }
-  for(auto h : heights) {
-    std::cout << h << std::endl;
-  }
+
   double avgHeight = totalHeight / heights.size();
-  std::cout << "Average height: " << avgHeight
-            << std::endl;
+  std::cout << "Average height: " << avgHeight << std::endl;
   std::cout << "Maximum height: " << maxHeight << std::endl;
   std::cout << "Variance of heights: ";
   double variance = 0.0;
