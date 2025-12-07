@@ -26,7 +26,9 @@ int main(int argc, char* argv[]) {
       "v,verbose", "Verbose output",
       cxxopts::value<bool>()->default_value("false"))(
       "b,batchsize", "Batch size for random access benchmark",
-      cxxopts::value<int>()->default_value("1000"));
+      cxxopts::value<int>()->default_value("1000"))(
+        "c,comparefile", "Factorization to compare against",
+        cxxopts::value<std::string>()->default_value("") );
 
   auto result = options.parse(argc, argv);
   if (result.count("help")) {
@@ -238,4 +240,23 @@ void heightAnalysis(const std::vector<PhraseC>& phrases) {
   }
   variance /= heights.size();
   std::cout << variance << std::endl;
+}
+
+double getSimilarityBetweenFactorizations(const std::vector<PhraseC>& phrasesA,
+                             const std::vector<PhraseC>& phrasesB) {
+  if (phrasesA.size() != phrasesB.size()) {
+    std::cout << "Factorizations have different number of phrases: "
+              << phrasesA.size() << " vs " << phrasesB.size() << std::endl;
+    return -1.0;
+  }
+  // Easy thing, calculate A CAP B / A U B
+  int common = 0;
+  for (size_t i = 0; i < phrasesA.size(); i++) {
+    if (phrasesA[i].len == phrasesB[i].len &&
+        phrasesA[i].pos == phrasesB[i].pos &&
+        phrasesA[i].nextChar == phrasesB[i].nextChar) {
+      common++;
+    }
+  }
+  return static_cast<double>(common) / phrasesA.size();
 }
