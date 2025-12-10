@@ -5,6 +5,8 @@
 #include <vector>
 #include "lzf.hpp"
 
+double getSimilarityBetweenFactorizations(const std::vector<PhraseC>& phrasesA,
+                             const std::vector<PhraseC>& phrasesB);
 void randomAccessBenchmark(const int repeats, std::string& output,
                            std::vector<PhraseC>& phrases, int batchSize);
 void heightAnalysis(const std::vector<PhraseC>& phrases);

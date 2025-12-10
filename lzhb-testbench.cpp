@@ -47,6 +47,18 @@ int main(int argc, char* argv[]) {
               << std::endl;
     return 1;
   }
+  std::string compareFile = result["comparefile"].as<std::string>();
+  if (!compareFile.empty()) {
+    auto phrasesA = decodeToPhraseC(inputFile);
+    auto phrasesB = decodeToPhraseC(compareFile);
+    double similarity =
+        getSimilarityBetweenFactorizations(phrasesA, phrasesB);
+    if (similarity >= 0.0) {
+      std::cout << "Similarity between factorizations: " << similarity
+                << std::endl;
+    }
+    return 0;
+  }
 
   std::string outputFile = result["outputfile"].as<std::string>();
   bool verbose = result["verbose"].as<bool>();
@@ -249,7 +261,6 @@ double getSimilarityBetweenFactorizations(const std::vector<PhraseC>& phrasesA,
               << phrasesA.size() << " vs " << phrasesB.size() << std::endl;
     return -1.0;
   }
-  // Easy thing, calculate A CAP B / A U B
   int common = 0;
   for (size_t i = 0; i < phrasesA.size(); i++) {
     if (phrasesA[i].len == phrasesB[i].len &&
