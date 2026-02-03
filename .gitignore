@@ -65,3 +65,8 @@ CMakeUserPresets.json
 input_data/
 
 .vscode/
+res/
+paramsearch res/
+paramc2/
+kpp3/
+input/
