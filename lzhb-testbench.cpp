@@ -151,13 +151,12 @@ AccessResults randomAccessBenchmark(const int repeats, std::string& output,
   // Benchmark
   for (int i = 0; i < repeats; i++) {
     volatile char c;
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::steady_clock::now();
     for (int k = 0; k < batchSize; k++)
       c = getPositionFromPhrasesT(phrases, predecessortable, positions[i * batchSize + k]);
-    auto end = std::chrono::high_resolution_clock::now();
+    auto end = std::chrono::steady_clock::now();
     (void)c;
     double dt = std::chrono::duration<double, std::nano>(end - start).count();
-    dt /= batchSize;  // average over batchSize runs
     timings.push_back(std::chrono::duration<double, std::nano>(dt));
   }
   double totalTime = 0.0;
@@ -174,12 +173,11 @@ AccessResults randomAccessBenchmark(const int repeats, std::string& output,
   // Compare to string access
   for (int i = 0; i < repeats; i++) {
     volatile char c;
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::steady_clock::now();
     for (int k = 0; k < batchSize; k++) c = output[positions[i * batchSize + k] - 1];
-    auto end = std::chrono::high_resolution_clock::now();
+    auto end = std::chrono::steady_clock::now();
     (void)c;
     double dt = std::chrono::duration<double, std::nano>(end - start).count();
-    dt /= batchSize;  // average over batchSize runs
     stringTimings.push_back(std::chrono::duration<double, std::nano>(dt));
   }
   double totalStringTime = 0.0;
@@ -221,16 +219,15 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(const int repeats, const int
   // Benchmark
   volatile char c;
   for (int i = 0; i < repeats; i++) {
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::steady_clock::now();
     for (long unsigned int j = 0;
          j < std::min(static_cast<size_t>(maxRunLength), output.size() - positions[i]); j++) {
       c = getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
     }
-    auto end = std::chrono::high_resolution_clock::now();
+    auto end = std::chrono::steady_clock::now();
     totalChars += std::min(static_cast<size_t>(maxRunLength), output.size() - positions[i]);
     (void)c;
     double dt = std::chrono::duration<double, std::nano>(end - start).count();
-    dt /= repeats;
     timings.push_back(std::chrono::duration<double, std::nano>(dt));
   }
   double totalTime = 0.0;
@@ -247,12 +244,12 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(const int repeats, const int
   // Compare to string access
   for (int i = 0; i < repeats; i++) {
     volatile char c;
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::steady_clock::now();
     for (long unsigned int j = 0;
          j < std::min(static_cast<size_t>(maxRunLength), output.size() - positions[i]); j++) {
       c = output[positions[i] + j - 1];
     }
-    auto end = std::chrono::high_resolution_clock::now();
+    auto end = std::chrono::steady_clock::now();
     (void)c;
     double dt = std::chrono::duration<double, std::nano>(end - start).count();
     dt /= repeats;
