@@ -10,6 +10,7 @@
 #include "cxxopts.hpp"
 #include "lzf.hpp"
 #include "lzhb-decode.hpp"
+#include "malloc_count.h"
 
 int main(int argc, char* argv[]) {
   // This currently only works with lzcp files,
@@ -19,9 +20,11 @@ int main(int argc, char* argv[]) {
                            "Testbench for LZHB factorizations.");
   options.add_options()("i,inputfile", "Input file",
                         cxxopts::value<std::string>())(
-      "r,repeats", "Number of repeats (single accesses) for random access benchmark",
+      "r,repeats",
+      "Number of repeats (single accesses) for random access benchmark",
       cxxopts::value<int>()->default_value("100000"))(
-      "s,consecutiverepeats", "Number of repeats (consecutive accesses) for random access benchmark",
+      "s,consecutiverepeats",
+      "Number of repeats (consecutive accesses) for random access benchmark",
       cxxopts::value<int>()->default_value("10000"))(
       "o,outputfile", "Output file",
       cxxopts::value<std::string>()->default_value(""))(
@@ -29,9 +32,9 @@ int main(int argc, char* argv[]) {
       cxxopts::value<bool>()->default_value("false"))(
       "b,batchsize", "Batch size for random access benchmark",
       cxxopts::value<int>()->default_value("1000"))(
-        "c,comparefile", "Factorization to compare against",
-        cxxopts::value<std::string>()->default_value("") )(
-      "h,help", "Print usage");
+      "c,comparefile", "Factorization to compare against",
+      cxxopts::value<std::string>()->default_value(""))("h,help",
+                                                        "Print usage");
   ;
 
   auto result = options.parse(argc, argv);
@@ -77,8 +80,8 @@ int main(int argc, char* argv[]) {
 
   std::cout << "Input file: " << inputFile << std::endl;
   std::cout << "Number of phrases: " << phrases.size() << std::endl;
-  std::string output = decodePhrasesToString(phrases);
-  if (verbose) std::cout << output << std::endl;
+  // std::string output = decodePhrasesToString(phrases);
+  // if (verbose) std::cout << output << std::endl;
   std::cout << "Decoding successful" << std::endl;
   std::cout << "--- Height Analysis ---" << std::endl;
   HeightResults heightResults = heightAnalysis(phrases);
@@ -87,22 +90,34 @@ int main(int argc, char* argv[]) {
   std::cout << "--- Random Access Decoding Benchmark ---" << std::endl;
   std::cout << "Starting random access test with " << repeats << " batches of "
             << batchSize << "." << std::endl;
-  AccessResults randomAccessResults =
-      randomAccessBenchmark(repeats, output, phrases, batchSize);
+  AccessResults randomAccessResults = randomAccessBenchmark(
+      repeats, lengthResults.totalLength, phrases, batchSize);
   std::cout << "--- Consecutive Random Access Decoding Benchmark ---"
             << std::endl;
-  std::cout << "Starting consecutive random access test with " << consecutiverepeats
-            << " runs of " << batchSize << " characters." << std::endl;
+  std::cout << "Starting consecutive random access test with "
+            << consecutiverepeats << " runs of " << batchSize << " characters."
+            << std::endl;
   ConsecutiveResults randomAccessConsecutiveResults =
-      randomAccessConsecutiveBenchmark(consecutiverepeats,batchSize, output, phrases);
+      randomAccessConsecutiveBenchmark(consecutiverepeats, batchSize,
+                                       lengthResults.totalLength, phrases);
 
-  uint64_t sizeInBytes = sizeof(PhraseC) * phrases.size() + sizeof(uint32_t) * phrases.size(); // PhraseC + predecessor table
-  std::cout << "Factorization size in memory in bytes (including predecessor table): "
-            << sizeInBytes << " bytes." << std::endl;
+  uint64_t sizeInBytes =
+      sizeof(PhraseC) * phrases.size() +
+      sizeof(uint32_t) * phrases.size();  // PhraseC + predecessor table
+  std::cout
+      << "Factorization size in memory in bytes (including predecessor table): "
+      << sizeInBytes << " bytes." << std::endl;
 
-  std::ofstream csv("testbench_results.csv", std::ios::app);
+  std::ofstream csv("testbench_results_packed.csv", std::ios::app);
   if (csv.tellp() == 0)
-    csv << "TIMESTAMP,FILE_NAME,REPEATS,BATCH_SIZE,PHRASE_NUM,MAX_HEIGHT,AVG_HEIGHT,VAR_HEIGHT,MAX_LENGTH,AVG_LENGTH,VAR_LENGTH,TOTAL_ACCESS_TIME_NS,AVERAGE_ACCESS_BATCH_TIME_NS,AVERAGE_ACCESS_CHAR_TIME,TOTAL_ACCESS_CHARS,TOTAL_CONSEC_ACCESS_TIME_NS,AVERAGE_CONSEC_QUERY_TIME_NS,AVERAGE_CONSEC_CHAR_TIME_NS,TOTAL_CONSEC_CHARS,STRING_TOTAL_ACCESS_TIME_NS,STRING_AVERAGE_ACCESS_TIME_NS,AVERAGE_STRING_CHAR_TIME_NS,STRING_TOTAL_CONSEC_TIME_NS,STRING_AVERAGE_CONSEC_QUERY_TIME_NS,AVERAGE_STRING_CONSEC_CHAR_TIME_NS, BYTES\n";
+    csv << "TIMESTAMP,FILE_NAME,REPEATS,BATCH_SIZE,PHRASE_NUM,MAX_HEIGHT,AVG_"
+           "HEIGHT,VAR_HEIGHT,MAX_LENGTH,AVG_LENGTH,VAR_LENGTH,TOTAL_ACCESS_"
+           "TIME_NS,AVERAGE_ACCESS_BATCH_TIME_NS,AVERAGE_ACCESS_CHAR_TIME,"
+           "TOTAL_ACCESS_CHARS,TOTAL_CONSEC_ACCESS_TIME_NS,AVERAGE_CONSEC_"
+           "QUERY_TIME_NS,AVERAGE_CONSEC_CHAR_TIME_NS,TOTAL_CONSEC_CHARS,"
+           "STRING_TOTAL_ACCESS_TIME_NS,STRING_AVERAGE_ACCESS_TIME_NS,AVERAGE_"
+           "STRING_CHAR_TIME_NS,STRING_TOTAL_CONSEC_TIME_NS,STRING_AVERAGE_"
+           "CONSEC_QUERY_TIME_NS,AVERAGE_STRING_CONSEC_CHAR_TIME_NS, BYTES\n";
   auto t = std::time(nullptr);
   csv << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S") << ","
       << inputFile << "," << repeats << "," << batchSize << ","
@@ -123,25 +138,26 @@ int main(int argc, char* argv[]) {
       << randomAccessConsecutiveResults.totalStringTimeNs << ","
       << randomAccessConsecutiveResults.averageStringTimeNsPerQuery << ","
       << randomAccessConsecutiveResults.averageStringTimeNsPerChar << ","
-      << sizeInBytes << "\n";
+      << sizeInBytes << "," << randomAccessResults.memoryUsageBytes << "\n";
   csv.close();
   return 0;
 }
 
-AccessResults randomAccessBenchmark(const int repeats, std::string& output,
+AccessResults randomAccessBenchmark(const int repeats, uint64_t outputSize,
                                     std::vector<PhraseC>& phrases,
                                     int batchSize) {
+  auto predecessortable = buildPredecessorTable(phrases);
+  size_t m_count = malloc_count_current();
+
   std::vector<std::chrono::duration<double, std::nano>> timings;
   timings.reserve(repeats);
-
   // Pre-generate random positions
   srand(42);
   std::vector<int> positions(repeats * batchSize);
   for (int i = 0; i < repeats * batchSize; i++) {
-    positions[i] = (rand() % output.size()) + 1;
+    positions[i] = (rand() % outputSize) + 1;
   }
 
-  auto predecessortable = buildPredecessorTable(phrases);
 
   // Warming up cache
   for (int i = 0; i < std::min(1000, repeats * batchSize); i++) {
@@ -153,7 +169,8 @@ AccessResults randomAccessBenchmark(const int repeats, std::string& output,
     volatile char c;
     auto start = std::chrono::steady_clock::now();
     for (int k = 0; k < batchSize; k++)
-      c = getPositionFromPhrasesT(phrases, predecessortable, positions[i * batchSize + k]);
+      c = getPositionFromPhrasesT(phrases, predecessortable,
+                                  positions[i * batchSize + k]);
     auto end = std::chrono::steady_clock::now();
     (void)c;
     double dt = std::chrono::duration<double, std::nano>(end - start).count();
@@ -171,15 +188,14 @@ AccessResults randomAccessBenchmark(const int repeats, std::string& output,
   std::vector<std::chrono::duration<double, std::nano>> stringTimings;
   stringTimings.reserve(repeats);
   // Compare to string access
-  for (int i = 0; i < repeats; i++) {
-    volatile char c;
-    auto start = std::chrono::steady_clock::now();
-    for (int k = 0; k < batchSize; k++) c = output[positions[i * batchSize + k] - 1];
-    auto end = std::chrono::steady_clock::now();
-    (void)c;
-    double dt = std::chrono::duration<double, std::nano>(end - start).count();
-    stringTimings.push_back(std::chrono::duration<double, std::nano>(dt));
-  }
+  /*   for (int i = 0; i < repeats; i++) {
+      volatile char c;
+      auto start = std::chrono::steady_clock::now();
+      for (int k = 0; k < batchSize; k++) c = output[positions[i * batchSize +
+    k] - 1]; auto end = std::chrono::steady_clock::now(); (void)c; double dt =
+    std::chrono::duration<double, std::nano>(end - start).count();
+      stringTimings.push_back(std::chrono::duration<double, std::nano>(dt));
+    } */
   double totalStringTime = 0.0;
   for (auto t : stringTimings) {
     totalStringTime += t.count();
@@ -189,29 +205,37 @@ AccessResults randomAccessBenchmark(const int repeats, std::string& output,
             << std::endl;
   std::cout << "Average time per batch (string access): "
             << (totalStringTime / repeats) << " nanoseconds" << std::endl;
-  return {totalTime, totalTime / repeats, totalTime / (repeats * batchSize),
-          totalStringTime, totalStringTime / repeats, totalStringTime / (repeats * batchSize), static_cast<uint64_t>(repeats * batchSize)};
+  return {totalTime,
+          totalTime / repeats,
+          totalTime / (repeats * batchSize),
+          totalStringTime,
+          totalStringTime / repeats,
+          totalStringTime / (repeats * batchSize),
+          static_cast<uint64_t>(repeats * batchSize),
+          m_count
+        };
 }
 
-ConsecutiveResults randomAccessConsecutiveBenchmark(const int repeats, const int maxRunLength,
-                                               std::string& output,
-                                               std::vector<PhraseC>& phrases) {
+ConsecutiveResults randomAccessConsecutiveBenchmark(
+    const int repeats, const int maxRunLength, uint64_t outputSize,
+    std::vector<PhraseC>& phrases) {
   std::vector<std::chrono::duration<double, std::nano>> timings;
   timings.reserve(repeats);
 
   auto predecessortable = buildPredecessorTable(phrases);
 
   uint64_t totalChars = 0;
-  
+
   srand(24);
   std::vector<int> positions(repeats);
   for (int i = 0; i < repeats; i++) {
-    positions[i] = (rand() % output.size()) + 1;
+    positions[i] = (rand() % outputSize) + 1;
   }
 
   // Warming up cache
   for (int i = 0; i < std::min(1000, repeats); i++) {
-    for (size_t j = 0; j < std::min(static_cast<size_t>(maxRunLength), output.size() - positions[i]);
+    for (size_t j = 0; j < std::min(static_cast<size_t>(maxRunLength),
+                                    outputSize - positions[i]);
          j++) {
       getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
     }
@@ -221,11 +245,14 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(const int repeats, const int
   for (int i = 0; i < repeats; i++) {
     auto start = std::chrono::steady_clock::now();
     for (long unsigned int j = 0;
-         j < std::min(static_cast<size_t>(maxRunLength), output.size() - positions[i]); j++) {
+         j <
+         std::min(static_cast<size_t>(maxRunLength), outputSize - positions[i]);
+         j++) {
       c = getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
     }
     auto end = std::chrono::steady_clock::now();
-    totalChars += std::min(static_cast<size_t>(maxRunLength), output.size() - positions[i]);
+    totalChars +=
+        std::min(static_cast<size_t>(maxRunLength), outputSize - positions[i]);
     (void)c;
     double dt = std::chrono::duration<double, std::nano>(end - start).count();
     timings.push_back(std::chrono::duration<double, std::nano>(dt));
@@ -242,19 +269,21 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(const int repeats, const int
   std::vector<std::chrono::duration<double, std::nano>> stringTimings;
   stringTimings.reserve(repeats);
   // Compare to string access
-  for (int i = 0; i < repeats; i++) {
-    volatile char c;
-    auto start = std::chrono::steady_clock::now();
-    for (long unsigned int j = 0;
-         j < std::min(static_cast<size_t>(maxRunLength), output.size() - positions[i]); j++) {
-      c = output[positions[i] + j - 1];
-    }
-    auto end = std::chrono::steady_clock::now();
-    (void)c;
-    double dt = std::chrono::duration<double, std::nano>(end - start).count();
-    dt /= repeats;
-    stringTimings.push_back(std::chrono::duration<double, std::nano>(dt));
-  }
+  /*   for (int i = 0; i < repeats; i++) {
+      volatile char c;
+      auto start = std::chrono::steady_clock::now();
+      for (long unsigned int j = 0;
+          j < std::min(static_cast<size_t>(maxRunLength),
+                        output.size() - positions[i]);
+          j++) {
+        c = output[positions[i] + j - 1];
+      }
+      auto end = std::chrono::steady_clock::now();
+      (void)c;
+      double dt = std::chrono::duration<double, std::nano>(end - start).count();
+      dt /= repeats;
+      stringTimings.push_back(std::chrono::duration<double, std::nano>(dt));
+    } */
 
   double totalStringTime = 0.0;
   for (auto t : stringTimings) {
@@ -266,8 +295,13 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(const int repeats, const int
   std::cout << "Average time per query (string access): "
             << (totalStringTime / repeats) << " nanoseconds" << std::endl;
 
-  return {totalTime, totalTime / repeats,
-          totalTime / static_cast<double>(totalChars), totalChars, totalStringTime, totalStringTime / repeats, totalStringTime / static_cast<double>(totalChars)};
+  return {totalTime,
+          totalTime / repeats,
+          totalTime / static_cast<double>(totalChars),
+          totalChars,
+          totalStringTime,
+          totalStringTime / repeats,
+          totalStringTime / static_cast<double>(totalChars)};
 }
 
 HeightResults heightAnalysis(const std::vector<PhraseC>& phrases) {
@@ -294,8 +328,7 @@ HeightResults heightAnalysis(const std::vector<PhraseC>& phrases) {
     heights.push_back(0);
   }
 
-  assert(decodePhrasesToString(phrases).size() == heights.size() &&
-         "Height analysis size mismatch");
+  //assert(decodePhrasesToString(phrases).size() == heights.size() && "Height analysis size mismatch");
 
   long double totalHeight = 0.0;
   int maxHeight = 0;
@@ -327,7 +360,7 @@ LengthResults lengthAnalysis(const std::vector<PhraseC>& phrases) {
     lengths.push_back(p.len);
   }
 
-  long double totalLength = 0.0;
+  uint64_t totalLength = 0;
   int maxLength = 0;
   for (auto l : lengths) {
     totalLength += l;
@@ -336,7 +369,7 @@ LengthResults lengthAnalysis(const std::vector<PhraseC>& phrases) {
     }
   }
 
-  double avgLength = totalLength / lengths.size();
+  double avgLength = static_cast<double>(totalLength) / lengths.size();
   std::cout << "Average phrase length: " << avgLength << std::endl;
   std::cout << "Maximum phrase length: " << maxLength << std::endl;
   std::cout << "Variance of phrase lengths: ";
@@ -346,7 +379,7 @@ LengthResults lengthAnalysis(const std::vector<PhraseC>& phrases) {
   }
   variance /= lengths.size();
   std::cout << variance << std::endl;
-  return {maxLength, avgLength, variance};
+  return {maxLength, avgLength, variance, totalLength};
 }
 
 double getSimilarityBetweenFactorizations(

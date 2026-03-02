@@ -9,7 +9,7 @@ struct Phrase{
   uint32_t pos; // char when len <= 1
 };
 
-struct PhraseC{ //
+struct [[gnu::packed]] PhraseC{ //
   uint32_t len;
   uint32_t pos;
   char nextChar;
