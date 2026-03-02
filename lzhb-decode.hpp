@@ -9,6 +9,7 @@
 #include <string>
 
 #include "lzf.hpp"
+#include "ordered/btree.hpp"
 
 uint8_t getBit(const uint8_t& block, uint8_t pos);
 void decodeBlock(std::vector<uint8_t>& bin_blocks,
@@ -30,6 +31,9 @@ char getPositionFromPhrases(
     int* height = nullptr);
 char getPositionFromPhrasesT(const std::vector<PhraseC>& phrases,
                              const std::vector<uint32_t>& predecessortable,
+                             uint32_t position, int* height = nullptr);
+char getPositionFromPhrasesBTREE(const std::vector<PhraseC>& phrases,
+                             const ordered::btree::Map<uint32_t, uint32_t>& predecessorMap,
                              uint32_t position, int* height = nullptr);
 std::vector<uint32_t> buildPredecessorTable(
     const std::vector<PhraseC>& phrases);

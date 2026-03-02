@@ -11,6 +11,7 @@
 #include "lzf.hpp"
 #include "lzhb-decode.hpp"
 #include "malloc_count.h"
+#include "ordered/btree.hpp"
 
 int main(int argc, char* argv[]) {
   // This currently only works with lzcp files,
@@ -80,8 +81,8 @@ int main(int argc, char* argv[]) {
 
   std::cout << "Input file: " << inputFile << std::endl;
   std::cout << "Number of phrases: " << phrases.size() << std::endl;
-  // std::string output = decodePhrasesToString(phrases);
-  // if (verbose) std::cout << output << std::endl;
+  //std::string output = decodePhrasesToString(phrases);
+  //if (verbose) std::cout << output << std::endl;
   std::cout << "Decoding successful" << std::endl;
   std::cout << "--- Height Analysis ---" << std::endl;
   HeightResults heightResults = heightAnalysis(phrases);
@@ -108,7 +109,7 @@ int main(int argc, char* argv[]) {
       << "Factorization size in memory in bytes (including predecessor table): "
       << sizeInBytes << " bytes." << std::endl;
 
-  std::ofstream csv("testbench_results_packed.csv", std::ios::app);
+  std::ofstream csv("testbench_results_packed_btree.csv", std::ios::app);
   if (csv.tellp() == 0)
     csv << "TIMESTAMP,FILE_NAME,REPEATS,BATCH_SIZE,PHRASE_NUM,MAX_HEIGHT,AVG_"
            "HEIGHT,VAR_HEIGHT,MAX_LENGTH,AVG_LENGTH,VAR_LENGTH,TOTAL_ACCESS_"
@@ -146,9 +147,15 @@ int main(int argc, char* argv[]) {
 AccessResults randomAccessBenchmark(const int repeats, uint64_t outputSize,
                                     std::vector<PhraseC>& phrases,
                                     int batchSize) {
-  auto predecessortable = buildPredecessorTable(phrases);
+  // auto predecessortable = buildPredecessorTable(phrases);
+  ordered::btree::Map<uint32_t, uint32_t> predecessorMap;
+  uint32_t cumulativeLength = 1;
+  for (size_t i = 0; i < phrases.size(); ++i) {
+    predecessorMap.insert(cumulativeLength, i);
+    cumulativeLength += phrases[i].len;
+  }
   size_t m_count = malloc_count_current();
-
+  //std::cout << outputString << std::endl;
   std::vector<std::chrono::duration<double, std::nano>> timings;
   timings.reserve(repeats);
   // Pre-generate random positions
@@ -158,10 +165,10 @@ AccessResults randomAccessBenchmark(const int repeats, uint64_t outputSize,
     positions[i] = (rand() % outputSize) + 1;
   }
 
-
   // Warming up cache
   for (int i = 0; i < std::min(1000, repeats * batchSize); i++) {
-    getPositionFromPhrasesT(phrases, predecessortable, positions[i]);
+    char c = getPositionFromPhrasesBTREE(phrases, predecessorMap, positions[i]);
+    (void)c;
   }
 
   // Benchmark
@@ -169,7 +176,7 @@ AccessResults randomAccessBenchmark(const int repeats, uint64_t outputSize,
     volatile char c;
     auto start = std::chrono::steady_clock::now();
     for (int k = 0; k < batchSize; k++)
-      c = getPositionFromPhrasesT(phrases, predecessortable,
+      c = getPositionFromPhrasesBTREE(phrases, predecessorMap,
                                   positions[i * batchSize + k]);
     auto end = std::chrono::steady_clock::now();
     (void)c;
@@ -222,8 +229,13 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(
   std::vector<std::chrono::duration<double, std::nano>> timings;
   timings.reserve(repeats);
 
-  auto predecessortable = buildPredecessorTable(phrases);
-
+  //auto predecessortable = buildPredecessorTable(phrases);
+  ordered::btree::Map<uint32_t, uint32_t> predecessorMap;
+  uint32_t cumulativeLength = 0;
+  for (size_t i = 0; i < phrases.size(); ++i) {
+    cumulativeLength += phrases[i].len;
+    predecessorMap.insert(cumulativeLength, i);
+  }
   uint64_t totalChars = 0;
 
   srand(24);
@@ -237,7 +249,7 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(
     for (size_t j = 0; j < std::min(static_cast<size_t>(maxRunLength),
                                     outputSize - positions[i]);
          j++) {
-      getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
+      getPositionFromPhrasesBTREE(phrases, predecessorMap, positions[i] + j);
     }
   }
   // Benchmark
@@ -248,7 +260,7 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(
          j <
          std::min(static_cast<size_t>(maxRunLength), outputSize - positions[i]);
          j++) {
-      c = getPositionFromPhrasesT(phrases, predecessortable, positions[i] + j);
+      c = getPositionFromPhrasesBTREE(phrases, predecessorMap, positions[i] + j);
     }
     auto end = std::chrono::steady_clock::now();
     totalChars +=

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "lzf.hpp"
+#include "ordered/btree.hpp"
 
 uint8_t getBit(const uint8_t& block, uint8_t pos) { return (block >> pos) & 1; }
 
@@ -244,6 +245,27 @@ char getPositionFromPhrasesT(const std::vector<PhraseC>& phrases,
     return getPositionFromPhrasesT(phrases, predecessortable, newPos, height);
   }
   return 0;
+}
+
+char getPositionFromPhrasesBTREE(
+    const std::vector<PhraseC>& phrases,
+    const ordered::btree::Map<uint32_t, uint32_t>& predecessorMap,
+    uint32_t position,
+    int* height)
+{
+  auto predResult = predecessorMap.predecessor(position);
+  if (!predResult.exists) return 0; // not found, return NUL
+  uint32_t cumLen = predResult.key;
+  uint32_t phraseIdx = predResult.value;
+  const PhraseC& predecessor = phrases[phraseIdx];
+  if (position == cumLen + predecessor.len - 1) {
+    return predecessor.nextChar;
+  }
+  auto offset = position - cumLen;
+  auto newPos = predecessor.pos + offset + 1;
+  return getPositionFromPhrasesBTREE(phrases, predecessorMap, newPos, height);
+
+  return 0; 
 }
 
 void printPhrase(const PhraseC& phrase) {

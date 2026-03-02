@@ -2,7 +2,7 @@
 CXX := g++
 CC  := gcc
 
-CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -march=native -fstrict-aliasing
+CXXFLAGS := -std=c++20 -Wall -Wextra -O3 -march=native -fstrict-aliasing -I./include
 CFLAGS   := -O3
 
 # Target executable name
