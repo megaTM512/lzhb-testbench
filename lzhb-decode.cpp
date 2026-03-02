@@ -248,22 +248,20 @@ char getPositionFromPhrasesT(const std::vector<PhraseC>& phrases,
 }
 
 char getPositionFromPhrasesBTREE(
-    const std::vector<PhraseC>& phrases,
-    const ordered::btree::Map<uint32_t, uint32_t>& predecessorMap,
+    const ordered::btree::Map<uint32_t, PhraseC>& predecessorMap,
     uint32_t position,
     int* height)
 {
   auto predResult = predecessorMap.predecessor(position);
   if (!predResult.exists) return 0; // not found, return NUL
   uint32_t cumLen = predResult.key;
-  uint32_t phraseIdx = predResult.value;
-  const PhraseC& predecessor = phrases[phraseIdx];
+  const PhraseC& predecessor = predResult.value;
   if (position == cumLen + predecessor.len - 1) {
     return predecessor.nextChar;
   }
   auto offset = position - cumLen;
   auto newPos = predecessor.pos + offset + 1;
-  return getPositionFromPhrasesBTREE(phrases, predecessorMap, newPos, height);
+  return getPositionFromPhrasesBTREE(predecessorMap, newPos, height);
 
   return 0; 
 }

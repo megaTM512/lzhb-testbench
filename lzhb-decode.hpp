@@ -32,8 +32,7 @@ char getPositionFromPhrases(
 char getPositionFromPhrasesT(const std::vector<PhraseC>& phrases,
                              const std::vector<uint32_t>& predecessortable,
                              uint32_t position, int* height = nullptr);
-char getPositionFromPhrasesBTREE(const std::vector<PhraseC>& phrases,
-                             const ordered::btree::Map<uint32_t, uint32_t>& predecessorMap,
+char getPositionFromPhrasesBTREE(const ordered::btree::Map<uint32_t, PhraseC>& predecessorMap,
                              uint32_t position, int* height = nullptr);
 std::vector<uint32_t> buildPredecessorTable(
     const std::vector<PhraseC>& phrases);

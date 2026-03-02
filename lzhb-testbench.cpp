@@ -95,13 +95,14 @@ int main(int argc, char* argv[]) {
       repeats, lengthResults.totalLength, phrases, batchSize);
   std::cout << "--- Consecutive Random Access Decoding Benchmark ---"
             << std::endl;
+  phrases = decodeToPhraseC(inputFile); // re-decode phrases, since they were cleared in randomAccessBenchmark
   std::cout << "Starting consecutive random access test with "
             << consecutiverepeats << " runs of " << batchSize << " characters."
             << std::endl;
   ConsecutiveResults randomAccessConsecutiveResults =
       randomAccessConsecutiveBenchmark(consecutiverepeats, batchSize,
                                        lengthResults.totalLength, phrases);
-
+  phrases = decodeToPhraseC(inputFile);
   uint64_t sizeInBytes =
       sizeof(PhraseC) * phrases.size() +
       sizeof(uint32_t) * phrases.size();  // PhraseC + predecessor table
@@ -148,14 +149,18 @@ AccessResults randomAccessBenchmark(const int repeats, uint64_t outputSize,
                                     std::vector<PhraseC>& phrases,
                                     int batchSize) {
   // auto predecessortable = buildPredecessorTable(phrases);
-  ordered::btree::Map<uint32_t, uint32_t> predecessorMap;
+  ordered::btree::Map<uint32_t, PhraseC> predecessorMap;
   uint32_t cumulativeLength = 1;
   for (size_t i = 0; i < phrases.size(); ++i) {
-    predecessorMap.insert(cumulativeLength, i);
+    predecessorMap.insert(cumulativeLength, phrases[i]);
     cumulativeLength += phrases[i].len;
   }
+  phrases.clear();
+  std::vector<PhraseC>().swap(phrases);  // free memory used by phrases vector
   size_t m_count = malloc_count_current();
-  //std::cout << outputString << std::endl;
+  std::cout << "Memory usage after building predecessor map: " << m_count
+            << " bytes." << std::endl;
+
   std::vector<std::chrono::duration<double, std::nano>> timings;
   timings.reserve(repeats);
   // Pre-generate random positions
@@ -167,7 +172,7 @@ AccessResults randomAccessBenchmark(const int repeats, uint64_t outputSize,
 
   // Warming up cache
   for (int i = 0; i < std::min(1000, repeats * batchSize); i++) {
-    char c = getPositionFromPhrasesBTREE(phrases, predecessorMap, positions[i]);
+    char c = getPositionFromPhrasesBTREE(predecessorMap, positions[i]);
     (void)c;
   }
 
@@ -176,7 +181,7 @@ AccessResults randomAccessBenchmark(const int repeats, uint64_t outputSize,
     volatile char c;
     auto start = std::chrono::steady_clock::now();
     for (int k = 0; k < batchSize; k++)
-      c = getPositionFromPhrasesBTREE(phrases, predecessorMap,
+      c = getPositionFromPhrasesBTREE(predecessorMap,
                                   positions[i * batchSize + k]);
     auto end = std::chrono::steady_clock::now();
     (void)c;
@@ -229,13 +234,15 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(
   std::vector<std::chrono::duration<double, std::nano>> timings;
   timings.reserve(repeats);
 
-  //auto predecessortable = buildPredecessorTable(phrases);
-  ordered::btree::Map<uint32_t, uint32_t> predecessorMap;
-  uint32_t cumulativeLength = 0;
+  ordered::btree::Map<uint32_t, PhraseC> predecessorMap;
+  uint32_t cumulativeLength = 1;
   for (size_t i = 0; i < phrases.size(); ++i) {
+    predecessorMap.insert(cumulativeLength, phrases[i]);
     cumulativeLength += phrases[i].len;
-    predecessorMap.insert(cumulativeLength, i);
   }
+  phrases.clear();
+  std::vector<PhraseC>().swap(phrases);  // free memory used by phrases vector
+  size_t m_count = malloc_count_current();
   uint64_t totalChars = 0;
 
   srand(24);
@@ -249,7 +256,7 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(
     for (size_t j = 0; j < std::min(static_cast<size_t>(maxRunLength),
                                     outputSize - positions[i]);
          j++) {
-      getPositionFromPhrasesBTREE(phrases, predecessorMap, positions[i] + j);
+      getPositionFromPhrasesBTREE(predecessorMap, positions[i] + j);
     }
   }
   // Benchmark
@@ -260,7 +267,7 @@ ConsecutiveResults randomAccessConsecutiveBenchmark(
          j <
          std::min(static_cast<size_t>(maxRunLength), outputSize - positions[i]);
          j++) {
-      c = getPositionFromPhrasesBTREE(phrases, predecessorMap, positions[i] + j);
+      c = getPositionFromPhrasesBTREE(predecessorMap, positions[i] + j);
     }
     auto end = std::chrono::steady_clock::now();
     totalChars +=
